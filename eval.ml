@@ -68,3 +68,22 @@ let eval_decl env = function
     Exp e -> let v = eval_exp env e in ("-", env, v)
   | Decl (id, e) ->
      let v = eval_exp env e in (id, Environment.extend id v env, v)
+  | Decls (decls) ->
+     let rec eval_decls_loop env decls =
+       match decls with
+       | d ::[] -> begin
+           match d with
+           | (id, e) -> let v = eval_exp env e in
+                        (id, Environment.extend id v env, v)
+
+         end
+       | d :: ds -> begin
+           match d with
+           | (id, e) -> let v = eval_exp env e in
+                        let new_env = Environment.extend id v env in
+                        eval_decls_loop new_env ds
+
+         end
+       | _ -> err "Internal Error: Invalid decl"
+     in
+     eval_decls_loop env decls (*呼び出し*)

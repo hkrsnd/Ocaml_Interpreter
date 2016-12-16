@@ -12,7 +12,9 @@ type exp =
   | LetExp of id * exp * exp
   | FunExp of id * exp (* fun id -> exp *)
   | AppExp of exp * exp
+            
 
 type program = 
   Exp of exp
 | Decl of id * exp
+| Decls of (id * exp) list
