@@ -1,27 +1,10 @@
 open Syntax
 open Eval
+open Printf
 
-let rec read_eval_print env =
-  print_string "# ";
-  flush stdout;
-  (**
-  let rec read_eval_print_loop env' decls =
-  (* let (id, newenv, v) = eval_decl env decl in *)
-  match decls with
-  (* letの複数宣言のときはdeclのリスト *)
-  | Decls((id,exp)::ds) -> 
-    let (id, newenv, v) = eval_decl env' decl in
-    (**Printf.printf "val %s = " id
-    pp_val v
-    print_newline()**)
-    read_eval_print_loop env' ds
-  | ->
-     read_eval_print env' in
-   *)
-  try
-    (*let decls = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in*)
-    let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
-    let (ids, newenv, vs) = eval_decl env decl in
+(* declを受け取って、評価して結果を出力する。返り値は評価後の新しい環境*)
+let eval_and_print_decl env decl =
+   let (ids, newenv, vs) = eval_decl env decl in
     let rec print_ids_and_values ids values =
       match ids with
       | []-> ();
@@ -37,8 +20,32 @@ let rec read_eval_print env =
          end
     in
     print_ids_and_values ids vs;
-    read_eval_print newenv
-    (*   read_eval_print_loop env decls; *)
+    newenv
+  ;;
+  
+let rec read_eval_print env =
+  print_string "# ";
+  flush stdout;
+  try
+    let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
+    (**let (ids, newenv, vs) = eval_decl env decl in
+    let rec print_ids_and_values ids values =
+      match ids with
+      | []-> ();
+      | i :: is ->
+         begin
+         match values with
+         | [] -> ();
+         | v :: vs ->
+            Printf.printf "val %s = " i;
+            pp_val v;
+            print_newline();            
+            print_ids_and_values is vs;
+         end
+    in
+    print_ids_and_values ids vs;**)
+    let newenv = eval_and_print_decl env decl in
+    read_eval_print newenv;
     
   with
   | Failure string ->  Printf.printf "%s \n" string; read_eval_print env
@@ -53,4 +60,49 @@ let initial_env =
         (Environment.extend "v" (IntV 5) 
           (Environment.extend "x" (IntV 10) Environment.empty)))))
 
-let _ = read_eval_print initial_env
+(* let _ = read_eval_print initial_env*)
+
+let get_and_eval_from_batch_file env filename =
+  let ic = open_in filename in
+  try
+    while true do
+      let decl = Parser.toplevel Lexer.main (Lexing.from_channel ic) in
+      let newenv = eval_and_print_decl env decl in
+      ();
+    done
+  with End_of_file ->
+    close_in ic;
+;;
+(**
+(* 外部ファイルから一行ずつ読み込み、stringのリストを返す *)
+let get_strings_from_batch_file filename =
+  let ic = open_in filename in
+  let decl = Parser.toplevel Lexer.main (Lexing.from_channel ic) in
+  let rec get_strings_loop ic strs =
+    try
+      let line = input_line ic in
+      get_strings_loop ic (strs @ [line]);
+    with End_of_file ->
+      close_in ic;
+      strs;
+  in
+  get_strings_loop ic []
+;;**)
+  
+(* stringのリストを受け取り、プログラムなら評価しコメントなら無視する *)
+let rec eval_batch_strings env strs =
+  match strs with
+  | [] -> print_endline;
+  | s :: ss -> (*let decl = Parser.toplevel Lexer.main s in*)
+               let newenv = eval_and_print_decl s in
+               eval_batch_strings newenv ss;
+;;
+  
+let () =
+  match Sys.argv with
+    (* コマンドライン引数なしのとき *)
+  | [|ocaml|] -> read_eval_print initial_env
+  (* コマンドライン引数としてファイル名１つを受け取る場合 *)
+  | [|ocaml; file|] ->
+     get_and_eval_from_batch_file initial_env file; ();
+  | _ -> read_eval_print initial_env
