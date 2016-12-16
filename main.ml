@@ -21,10 +21,22 @@ let rec read_eval_print env =
   try
     (*let decls = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in*)
     let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
-    let (id, newenv, v) = eval_decl env decl in
-    Printf.printf "val %s = " id;
-    pp_val v;
-    print_newline();
+    let (ids, newenv, vs) = eval_decl env decl in
+    let rec print_ids_and_values ids values =
+      match ids with
+      | []-> ();
+      | i :: is ->
+         begin
+         match values with
+         | [] -> ();
+         | v :: vs ->
+            Printf.printf "val %s = " i;
+            pp_val v;
+            print_newline();            
+            print_ids_and_values is vs;
+         end
+    in
+    print_ids_and_values ids vs;
     read_eval_print newenv
     (*   read_eval_print_loop env decls; *)
     

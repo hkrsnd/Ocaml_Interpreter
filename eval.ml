@@ -65,25 +65,25 @@ let rec eval_exp env = function
       | _ -> err ("Non-function value is applied"))
 
 let eval_decl env = function
-    Exp e -> let v = eval_exp env e in ("-", env, v)
+    Exp e -> let v = eval_exp env e in (["-"], env, [v])
   | Decl (id, e) ->
-     let v = eval_exp env e in (id, Environment.extend id v env, v)
+     let v = eval_exp env e in ([id], Environment.extend id v env, [v])
   | Decls (decls) ->
-     let rec eval_decls_loop env decls =
+     let rec eval_decls_loop env decls ids values =
        match decls with
        | d ::[] -> begin
            match d with
            | (id, e) -> let v = eval_exp env e in
-                        (id, Environment.extend id v env, v)
+                        (ids @ [id], Environment.extend id v env, values @ [v])
 
          end
        | d :: ds -> begin
            match d with
            | (id, e) -> let v = eval_exp env e in
                         let new_env = Environment.extend id v env in
-                        eval_decls_loop new_env ds
+                        eval_decls_loop new_env ds (ids @ [id]) (values @ [v])
 
          end
        | _ -> err "Internal Error: Invalid decl"
      in
-     eval_decls_loop env decls (*呼び出し*)
+     eval_decls_loop env decls [] [](*呼び出し*)
