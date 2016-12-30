@@ -1,6 +1,6 @@
 open Syntax 
 (*どういう値がありうるか*)
-type exval = 
+type exval =
     IntV of int
   | BoolV of bool
   | ProcV of id * exp * dnval Environment.t (*名前、式、定義された時の環境の情報*)
@@ -29,14 +29,14 @@ let rec apply_prim op arg1 arg2 = match op, arg1, arg2 with
   | And, _, _ -> err ("Both arguments must be bool: &&")
   | Or, BoolV b1, BoolV b2 -> BoolV (b1 || b2)
   | Or, _, _ -> err ("Both arguments must be bool: ||")
-              
+            
 let rec eval_exp env = function
-  | Var x -> 
-      (try Environment.lookup x env with 
+  | Var x ->
+      (try Environment.lookup x env with
         Environment.Not_bound -> err ("Variable not bound: " ^ x))
   | ILit i -> IntV i
   | BLit b -> BoolV b
-  | BinOp (op, exp1, exp2) -> 
+  | BinOp (op, exp1, exp2) ->
       let arg1 = eval_exp env exp1 in
       let arg2 = eval_exp env exp2 in
       apply_prim op arg1 arg2
