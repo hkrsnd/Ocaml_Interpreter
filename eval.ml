@@ -1,9 +1,8 @@
-open Syntax 
-(*どういう値がありうるか*)
-type exval =
-    IntV of int
-  | BoolV of bool
-  | ProcV of id * exp * dnval Environment.t (*名前、式、定義された時の環境の情報*)
+open Syntax
+(*どういう値がありうるか*) type exval =
+                                          IntV of int
+                                        | BoolV of bool
+                                        | ProcV of (id list) * exp * dnval Environment.t (*名前、式、定義された時の環境の情報*)
 and dnval = exval
 
 exception Error of string
@@ -29,61 +28,62 @@ let rec apply_prim op arg1 arg2 = match op, arg1, arg2 with
   | And, _, _ -> err ("Both arguments must be bool: &&")
   | Or, BoolV b1, BoolV b2 -> BoolV (b1 || b2)
   | Or, _, _ -> err ("Both arguments must be bool: ||")
-            
+
 let rec eval_exp env = function
   | Var x ->
-      (try Environment.lookup x env with
-        Environment.Not_bound -> err ("Variable not bound: " ^ x))
+    (try Environment.lookup x env with
+       Environment.Not_bound -> err ("Variable not bound: " ^ x))
   | ILit i -> IntV i
   | BLit b -> BoolV b
   | BinOp (op, exp1, exp2) ->
-      let arg1 = eval_exp env exp1 in
-      let arg2 = eval_exp env exp2 in
-      apply_prim op arg1 arg2
+    let arg1 = eval_exp env exp1 in
+    let arg2 = eval_exp env exp2 in
+    apply_prim op arg1 arg2
   | IfExp (exp1, exp2, exp3) ->
-      let test = eval_exp env exp1 in
-        (match test with
-            BoolV true -> eval_exp env exp2 
-          | BoolV false -> eval_exp env exp3
-          | _ -> err ("Test expression must be boolean: if"))
+    let test = eval_exp env exp1 in
+    (match test with
+       BoolV true -> eval_exp env exp2
+     | BoolV false -> eval_exp env exp3
+     | _ -> err ("Test expression must be boolean: if"))
   | LetExp (id, exp1, exp2) ->
-     let value = eval_exp env exp1 in
-     eval_exp (Environment.extend id value env) exp2
+    let value = eval_exp env exp1 in
+    eval_exp (Environment.extend id value env) exp2
   | FunExp (id, exp) -> ProcV (id, exp, env)
   | AppExp (exp1, exp2) -> (*exp1 とexp2をそれぞれ評価*)
-     let funval = eval_exp env exp1 in
-     let arg = eval_exp env exp2 in
-     (**(match funval with
-      | ProcV (ids, body, env') ->
-        let newenv = Environment.extend_list ids args env' in
-        eval_exp newenv body
-      | _ -> err ("Non-function value is applied"))**)
-      (match funval with (*funvalから中身をとり出す*)
+    let funval = eval_exp env exp1 in
+    let args = List.map (fun x -> eval_exp env x) exp2 in
+    (match funval with
+     | ProcV (ids, body, env') ->
+       (* 複数引数を複数の変数名に束縛する *)
+       let newenv = Environment.extend_list ids args env' in
+       eval_exp newenv body
+     (**(match funval with (*funvalから中身をとり出す*)
         ProcV (id, body, env') ->(*bodyを評価する必要がある、そのときの環境newenv*)
         let newenv = Environment.extend id arg env' in (* 引数を環境に追加したnewenvでbodyを評価*)
         eval_exp newenv body
-      | _ -> err ("Non-function value is applied"))
+        **)
+     | _ -> err ("Non-function value is applied"))
 
 let eval_decl env = function
     Exp e -> let v = eval_exp env e in (["-"], env, [v])
   | Decl (id, e) ->
-     let v = eval_exp env e in ([id], Environment.extend id v env, [v])
+    let v = eval_exp env e in ([id], Environment.extend id v env, [v])
   | Decls (decls) ->
-     let rec eval_decls_loop env decls ids values =
-       match decls with
-       | d ::[] -> begin
-           match d with
-           | (id, e) -> let v = eval_exp env e in
-                        (ids @ [id], Environment.extend id v env, values @ [v])
+    let rec eval_decls_loop env decls ids values =
+      match decls with
+      | d ::[] -> begin
+          match d with
+          | (id, e) -> let v = eval_exp env e in
+            (ids @ [id], Environment.extend id v env, values @ [v])
 
-         end
-       | d :: ds -> begin
-           match d with
-           | (id, e) -> let v = eval_exp env e in
-                        let new_env = Environment.extend id v env in
-                        eval_decls_loop new_env ds (ids @ [id]) (values @ [v])
+        end
+      | d :: ds -> begin
+          match d with
+          | (id, e) -> let v = eval_exp env e in
+            let new_env = Environment.extend id v env in
+            eval_decls_loop new_env ds (ids @ [id]) (values @ [v])
 
-         end
-       | _ -> err "Internal Error: Invalid decl"
-     in
-     eval_decls_loop env decls [] [](*呼び出し*)
+        end
+      | _ -> err "Internal Error: Invalid decl"
+    in
+    eval_decls_loop env decls [] [](*呼び出し*)
