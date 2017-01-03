@@ -17,6 +17,7 @@ type token =
   | EQ
   | RARROW
   | FUN
+  | REC
   | INTV of (int)
   | ID of (Syntax.id)
   | IDS of (Syntax.id list)

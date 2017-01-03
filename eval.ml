@@ -66,7 +66,14 @@ let rec eval_exp env = function
        let newenv = Environment.extend id arg env' in (* 引数を環境に追加したnewenvでbodyを評価*)
        eval_exp newenv body
      | _ -> err ("Non-function value is applied"))
+  | LetRecExp (id, para, exp1, exp2) ->
+    let dummyenv = ref Environment.empty in
+    let newenv =
+      Environment.extend id (ProcV (para, exp1, !dummyenv)) env in
+    dummyenv := newenv;
+    eval_exp newenv exp2
 
+(* return  (ids, newenv, vs) *)
 let eval_decl env = function
     Exp e -> let v = eval_exp env e in (["-"], env, [v])
   | Decl (id, e) ->
@@ -90,3 +97,10 @@ let eval_decl env = function
       | _ -> err "Internal Error: Invalid decl"
     in
     eval_decls_loop env decls [] [](*呼び出し*)
+  | RecDecl (id, idx, exp) -> (* let rec id = fun idx -> exp *)
+    let dummyenv = ref Environment.empty in
+    let newenv =
+      Environment.extend id (ProcV (idx, exp, !dummyenv)) env in
+    dummyenv := newenv;
+    let v = eval_exp newenv (FunExp([idx], exp)) in
+    ([id], Environment.extend id v newenv, [v])

@@ -7,6 +7,7 @@ open Syntax
 %token IF THEN ELSE TRUE FALSE
 %token LET IN EQ
 %token RARROW FUN
+%token REC
 
 %token <int> INTV
 %token <Syntax.id> ID
@@ -20,6 +21,7 @@ toplevel :
   Expr SEMISEMI { Exp $1 }
   | LET ID EQ Expr SEMISEMI { Decl ($2, $4) }
   | LET ID EQ Expr LetOps SEMISEMI { Decls([($2,$4)] @ $5) }
+  | LET REC ID EQ FUN ID RARROW Expr { RecDecl($3,$6,$8) }
   | LET ID IDs EQ Expr { Decl ($2,FunExp($3, $5)) }
 
 LetOps :
