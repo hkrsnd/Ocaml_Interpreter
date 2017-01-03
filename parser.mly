@@ -32,7 +32,10 @@ Expr :
         | FunExpr { $1 }
 
 FunExpr :
-            FUN ID RARROW Expr { FunExp($2, $4) }
+            FUN IDs RARROW Expr { FunExp($2, $4) }
+IDs   :
+  IDs ID { $1 @ [$2]}
+        | ID { [$1] }
 MExpr :
             MExpr MULT AppExpr { BinOp (Mult, $1, $3) }
             | AppExpr { $1 }

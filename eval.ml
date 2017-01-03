@@ -14,7 +14,7 @@ let err s = raise (Error s)
 let rec string_of_exval = function
     IntV i -> string_of_int i
   | BoolV b -> string_of_bool b
-  | ProcV (ids, exp, dnval) -> "<fun>"
+  | ProcV (id, exp, dnval) -> "<fun>"
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -49,7 +49,10 @@ let rec eval_exp env = function
   | LetExp (id, exp1, exp2) ->
     let value = eval_exp env exp1 in
     eval_exp (Environment.extend id value env) exp2
-  | FunExp (id, exp) -> ProcV (id, exp, env)
+  | FunExp (ids, exp) -> (match ids with
+      | i :: [] -> ProcV (i, exp, env)
+      | i :: is -> ProcV (i, (FunExp (is, exp)), env)
+      | [] -> err ("Internal error null funexp"))
   | AppExp (exp1, exp2) -> (*exp1 とexp2をそれぞれ評価*)
     let funval = eval_exp env exp1 in
     let arg = eval_exp env exp2 in
