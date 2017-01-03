@@ -20,6 +20,7 @@ toplevel :
   Expr SEMISEMI { Exp $1 }
   | LET ID EQ Expr SEMISEMI { Decl ($2, $4) }
   | LET ID EQ Expr LetOps SEMISEMI { Decls([($2,$4)] @ $5) }
+  | LET ID IDs EQ Expr { Decl ($2,FunExp($3, $5)) }
 
 LetOps :
       LET ID EQ Expr { [($2, $4)] }
