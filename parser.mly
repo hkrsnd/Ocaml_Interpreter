@@ -33,6 +33,7 @@ Expr :
         | LTExpr { $1 }
         | LetExpr { $1 }
         | FunExpr { $1 }
+        | LetRecExpr { $1 }
 
 FunExpr :
             FUN IDs RARROW Expr { FunExp($2, $4) }
@@ -47,6 +48,8 @@ AppExpr :
                 | AExpr { $1 }
 LetExpr :
        LET ID EQ Expr IN Expr { LetExp ($2, $4, $6) }
+LetRecExpr :
+      LET REC ID EQ FUN ID RARROW Expr IN Expr { LetRecExp($3, $6, $8,$10)}
     
 LTExpr :
          PExpr LT PExpr { BinOp (Lt, $1, $3) }

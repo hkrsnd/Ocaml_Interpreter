@@ -15,7 +15,7 @@ type exp =
   | LetRecExp of id * id * exp * exp
 
 
-type program = 
+type program =
     Exp of exp
   | Decl of id * exp
   | Decls of (id * exp) list

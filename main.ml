@@ -135,8 +135,7 @@ let cut_comments strs =
     | [] -> []
     | s :: ss ->
       (* コメント内部のとき *)
-      if depth > 0 then
-        (* コメントの始まり記号* ) があるとき *)
+      if depth > 0 then (* コメントの始まり記号* ) があるとき *)
         if (search_string comment_start_regex s >= 0) then
           (* depthを増やして始まり記号以降を再探索 *)
           let begin_pos = Str.match_beginning () in
@@ -149,11 +148,9 @@ let cut_comments strs =
             if (Str.match_end () = String.length s) then begin
               cut_comments_loop ss (depth - 1)
             end
-            else begin
-              search_string comment_end_regex s; (* match_endのために検索上書き *)
+            else
               let not_comment_part = (Str.string_after s (Str.match_end ())) in
               not_comment_part :: (cut_comments_loop ss (depth - 1))
-            end
           else
             (* depth >= 2のとき、まだコメント *)
             let after_endcomment_part = (Str.string_after s (Str.match_end ())) in
