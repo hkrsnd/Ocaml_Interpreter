@@ -14,7 +14,6 @@ type exp =
   | AppExp of exp * exp
   | LetRecExp of id * id * exp * exp
 
-
 type program =
     Exp of exp
   | Decl of id * exp

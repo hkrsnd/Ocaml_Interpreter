@@ -2,6 +2,7 @@ open Syntax
 open Eval
 open Printf
 
+
 (* declと環境を受け取って、評価して結果を出力する。返り値は評価後の新しい環境 *)
 let eval_and_print_decl env decl =
   let (ids, newenv, vs) = eval_decl env decl in

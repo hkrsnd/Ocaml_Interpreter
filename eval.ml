@@ -3,7 +3,7 @@ open Syntax
 type exval =
     IntV of int
   | BoolV of bool
-  | ProcV of id * exp * dnval Environment.t (*名前、式、定義された時の環境の情報*)
+  | ProcV of id * exp * dnval Environment.t ref (*名前、式、定義された時の環境の情報*)
 and dnval = exval
 
 exception Error of string
@@ -50,8 +50,8 @@ let rec eval_exp env = function
     let value = eval_exp env exp1 in
     eval_exp (Environment.extend id value env) exp2
   | FunExp (ids, exp) -> (match ids with
-      | i :: [] -> ProcV (i, exp, env)
-      | i :: is -> ProcV (i, (FunExp (is, exp)), env)
+      | i :: [] -> ProcV (i, exp, ref env)
+      | i :: is -> ProcV (i, (FunExp (is, exp)), ref env)
       | [] -> err ("Internal error null funexp"))
   | AppExp (exp1, exp2) -> (*exp1 とexp2をそれぞれ評価*)
     let funval = eval_exp env exp1 in
@@ -63,13 +63,13 @@ let rec eval_exp env = function
        | _ -> err ("Non-function value is applied"))**)
     (match funval with (*funvalから中身をとり出す*)
        ProcV (id, body, env') ->(*bodyを評価する必要がある、そのときの環境newenv*)
-       let newenv = Environment.extend id arg env' in (* 引数を環境に追加したnewenvでbodyを評価*)
+       let newenv = Environment.extend id arg !env' in (* 引数を環境に追加したnewenvでbodyを評価*)
        eval_exp newenv body
      | _ -> err ("Non-function value is applied"))
   | LetRecExp (id, para, exp1, exp2) ->
     let dummyenv = ref Environment.empty in
     let newenv =
-      Environment.extend id (ProcV (para, exp1, !dummyenv)) env in
+      Environment.extend id (ProcV (para, exp1, dummyenv)) env in
     dummyenv := newenv;
     eval_exp newenv exp2
 
@@ -100,7 +100,7 @@ let eval_decl env = function
   | RecDecl (id, idx, exp) -> (* let rec id = fun idx -> exp *)
     let dummyenv = ref Environment.empty in
     let newenv =
-      Environment.extend id (ProcV (idx, exp, !dummyenv)) env in
+      Environment.extend id (ProcV (idx, exp, dummyenv)) env in
     dummyenv := newenv;
     let v = eval_exp newenv (FunExp([idx], exp)) in
     ([id], Environment.extend id v newenv, [v])
