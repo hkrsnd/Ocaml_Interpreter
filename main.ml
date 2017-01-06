@@ -1,10 +1,10 @@
 open Syntax
 open Eval
 open Printf
-
+open Typing
 
 (* declと環境を受け取って、評価して結果を出力する。返り値は評価後の新しい環境 *)
-let eval_and_print_decl env decl =
+let eval_and_print_decl env decl ty =
   let (ids, newenv, vs) = eval_decl env decl in
   let rec print_ids_and_values ids values =
     match ids with
@@ -15,6 +15,8 @@ let eval_and_print_decl env decl =
         | [] -> ();
         | v :: vs ->
           Printf.printf "val %s = " i;
+          pp_ty ty;
+          print_string " = ";
           pp_val v;
           print_newline();
           print_ids_and_values is vs;
@@ -24,11 +26,12 @@ let eval_and_print_decl env decl =
   newenv
 ;;
 (* 適当な出力をしながらeval_and_print_declを呼び出す。 *)
-let rec read_eval_print env =
+let rec read_eval_print env tyenv =
   print_string "# ";
   flush stdout;
   try
     let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
+    let ty = ty_decl tyenv decl in
     (**let (ids, newenv, vs) = eval_decl env decl in
        let rec print_ids_and_values ids values =
        match ids with
@@ -45,20 +48,18 @@ let rec read_eval_print env =
          end
        in
        print_ids_and_values ids vs;**)
-    let newenv = eval_and_print_decl env decl in
-    read_eval_print newenv;
+    let newenv = eval_and_print_decl env decl ty in
+    read_eval_print newenv tyenv;
   with
-  | Failure string ->  Printf.printf "%s \n" string; read_eval_print env
-  | Eval.Error string -> Printf.printf "%s \n" string; read_eval_print env
-
-
-let initial_env = 
-  Environment.extend "i" (IntV 1)
-    (Environment.extend "ii" (IntV 2)
-       (Environment.extend "iii" (IntV 3)
-          (Environment.extend "iv" (IntV 4)
-             (Environment.extend "v" (IntV 5) 
-                (Environment.extend "x" (IntV 10) Environment.empty)))))
+  | Failure string ->  Printf.printf "%s \n" string; read_eval_print env tyenv
+  | Eval.Error string -> Printf.printf "%s \n" string; read_eval_print env tyenv
+      
+let initial_env =
+  Environment.empty
+let initial_tyenv = 
+  Environment.extend "i" TyInt
+    (Environment.extend "v" TyInt
+       (Environment.extend "x" TyInt Environment.empty))
 
 (* let _ = read_eval_print initial_env*)
 
@@ -117,12 +118,13 @@ let gather_by_semisemi strs =
 ;;
 
 (* stringのリストを受け取り、プログラムなら評価しコメントなら無視する *)
-let rec eval_batch_strings env strs =
+let rec eval_batch_strings env tyenv strs =
   match strs with
   | [] -> print_endline;
   | s :: ss -> let decl = Parser.toplevel Lexer.main (Lexing.from_string s) in
-    let newenv = eval_and_print_decl env decl in
-    eval_batch_strings newenv ss;
+    let ty = ty_decl tyenv decl in
+    let newenv = eval_and_print_decl env decl ty in
+    eval_batch_strings newenv tyenv ss;
 ;;
 (* stringのリストからコメント部分を切り取って返す *)
 let cut_comments strs =
@@ -184,18 +186,18 @@ let cut_comments strs =
   remove_null strs_with_null
 ;;
 (* ファイル名と環境を受けとり、ファイルの内容を評価する *)
-let get_and_eval_from_batch_file env filename =
+let get_and_eval_from_batch_file env tyenv filename =
   let strs = get_strings_from_batch_file filename in
   let strs_without_comments = cut_comments strs in
   let gathered_strs = gather_by_semisemi strs_without_comments in
-  eval_batch_strings env gathered_strs
+  eval_batch_strings env tyenv gathered_strs
 ;;
 let () =
   match Sys.argv with
   (* コマンドライン引数なしのとき *)
-  | [|ocaml|] -> read_eval_print initial_env
+  | [|ocaml|] -> read_eval_print initial_env initial_tyenv
   (* コマンドライン引数としてファイル名１つを受け取る場合 *)
   | [|ocaml; file|] ->
-    get_and_eval_from_batch_file initial_env file; ();
-  | _ -> read_eval_print initial_env
+    get_and_eval_from_batch_file initial_env initial_tyenv file; ();
+  | _ -> read_eval_print initial_env initial_tyenv
 ;;
