@@ -14,7 +14,7 @@ let eval_and_print_decl env decl ty =
         match values with
         | [] -> ();
         | v :: vs ->
-          Printf.printf "val %s = " i;
+          Printf.printf "val %s: " i;
           pp_ty ty;
           print_string " = ";
           pp_val v;
@@ -192,12 +192,18 @@ let get_and_eval_from_batch_file env tyenv filename =
   let gathered_strs = gather_by_semisemi strs_without_comments in
   eval_batch_strings env tyenv gathered_strs
 ;;
+(*
 let () =
   match Sys.argv with
   (* コマンドライン引数なしのとき *)
   | [|ocaml|] -> read_eval_print initial_env initial_tyenv
   (* コマンドライン引数としてファイル名１つを受け取る場合 *)
   | [|ocaml; file|] ->
-    get_and_eval_from_batch_file initial_env initial_tyenv file; ();
+    get_and_eval_from_batch_file initial_env initial_tyenv file;
+    ();
   | _ -> read_eval_print initial_env initial_tyenv
 ;;
+*)
+
+let () = Test.test;
+  ();;
