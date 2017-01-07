@@ -13,6 +13,7 @@ type subst = (tyvar * ty) list
 (* substは型変数と型のペアのリスト [(id1,ty1); (id2,ty2); ... (idn,tyn)] *)
 let rec subst_type subs ty =
   (* substの中からvarの型情報を探しだす関数 *)
+  (* Option型のようなペアを返す *)
   let rec lookup_subst_type subs' var =
     (match subs' with
      | [] -> (false, TyInt);
@@ -33,8 +34,55 @@ let rec subst_type subs ty =
      | (false, _) -> ty;
   )
 ;;
+(* α -> ty でpairsを更新する *)
+(* (ty * ty) list -> (ty * ty) -> (ty * ty) list *)
+let update_pairs pairs subst =
+  (* 代入されるα *)
+  let alpha = fst subst in
+  let rec update_pairs_loop pairs subst = 
+    match pairs with
+      [] -> []
+    | p :: ps -> (match p with
+                    ty1, ty2 -> if (ty1 = alpha) then
+                                  begin
+                                    if (ty2 = alpha) then
+                                      (alpha, alpha) :: update_pairs_loop ps subst
+                                    else
+                                      (alpha, ty2) :: update_pairs_loop ps subst
+                                  end
+                                else if (ty2 = alpha) then
+                                  (ty1, alpha) :: update_pairs_loop ps subst
+                                else
+                                  (ty1, ty2) :: update_pairs_loop ps subst
+                 ) in
+  update_pairs_loop pairs subst;
+;;
 
-
+(* 単一化アルゴリズム *)
+(* (ty * ty) list -> subst *)
+let rec unify pairs = match pairs with
+    [] -> []
+  | p :: ps -> (match p with
+                  TyInt, TyInt -> unify ps
+                | TyBool, TyBool -> unify ps
+                | TyVar var, ty -> let ftv_ty = freevar_ty ty in
+                                   if (MySet.member ty ftv_ty) then
+                                     let updated = update_pairs ps p in
+                                     List.rev (p :: (List.rev (unify updated)))
+                                   else
+                                     err ("Type mismatch.")
+                | ty, TyVar var -> let ftv_ty = freevar_ty ty in
+                                   if (MySet.member ty ftv_ty) then
+                                     let updated = update_pairs ps p in
+                                     List.rev (p :: (List.rev (unify updated)))
+                                else
+                                  err ("Type mismatch.")
+                | TyFun(ty11, ty12), TyFun(ty21, ty22) ->
+                   let newpairs = [(ty11, ty21);(ty12, ty22)] in
+                   unify (List.append newpairs  ps)
+                | _, _ -> err("Type mismatch.")
+               )
+    
 let ty_prim op ty1 ty2 = match op with
     Plus -> (match ty1, ty2 with
         TyInt, TyInt -> TyInt

@@ -192,7 +192,7 @@ let get_and_eval_from_batch_file env tyenv filename =
   let gathered_strs = gather_by_semisemi strs_without_comments in
   eval_batch_strings env tyenv gathered_strs
 ;;
-(*
+
 let () =
   match Sys.argv with
   (* コマンドライン引数なしのとき *)
@@ -203,7 +203,7 @@ let () =
     ();
   | _ -> read_eval_print initial_env initial_tyenv
 ;;
-*)
-
+(*
 let () = Test.test;
   ();;
+*)

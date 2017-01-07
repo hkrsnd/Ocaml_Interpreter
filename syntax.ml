@@ -43,7 +43,7 @@ let rec freevar_ty ty =
       let newset = freevar_ty_loop arg1 set in
       freevar_ty_loop arg2 newset
     | TyVar tyv ->
-      MySet.insert tyv set
+      MySet.insert ty set
     | _ -> set
   in
   freevar_ty_loop ty MySet.empty
