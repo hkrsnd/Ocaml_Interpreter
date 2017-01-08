@@ -31,52 +31,24 @@ let rec read_eval_print env tyenv =
   flush stdout;
   try
     let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
-    let ty = ty_decl tyenv decl in
-    (**let (ids, newenv, vs) = eval_decl env decl in
-       let rec print_ids_and_values ids values =
-       match ids with
-       | []-> ();
-       | i :: is ->
-         begin
-         match values with
-         | [] -> ();
-         | v :: vs ->
-            Printf.printf "val %s = " i;
-            pp_val v;
-            print_newline();            
-            print_ids_and_values is vs;
-         end
-       in
-       print_ids_and_values ids vs;**)
+    let ty = snd (ty_decl tyenv decl) in
     let newenv = eval_and_print_decl env decl ty in
     read_eval_print newenv tyenv;
   with
   | Failure string ->  Printf.printf "%s \n" string; read_eval_print env tyenv
   | Eval.Error string -> Printf.printf "%s \n" string; read_eval_print env tyenv
-      
+;;
+  
 let initial_env =
   Environment.empty
+;;
+  
 let initial_tyenv = 
   Environment.extend "i" TyInt
     (Environment.extend "v" TyInt
        (Environment.extend "x" TyInt Environment.empty))
-
-(* let _ = read_eval_print initial_env*)
-
-
-(**
-   let ic = open_in filename in
-   try
-   while true do
-    let decl = Parser.toplevel Lexer.main (Lexing.from_channel ic) in
-    let newenv = eval_and_print_decl env decl in
-    ();
-   done
-   with End_of_file ->
-   close_in ic;
- **)
 ;;
-
+  
 (* 外部ファイルから一行ずつ読み込み、stringのリストを返す *)
 let get_strings_from_batch_file filename =
   let ic = open_in filename in
@@ -122,7 +94,7 @@ let rec eval_batch_strings env tyenv strs =
   match strs with
   | [] -> print_endline;
   | s :: ss -> let decl = Parser.toplevel Lexer.main (Lexing.from_string s) in
-    let ty = ty_decl tyenv decl in
+    let ty = snd (ty_decl tyenv decl) in
     let newenv = eval_and_print_decl env decl ty in
     eval_batch_strings newenv tyenv ss;
 ;;
@@ -203,7 +175,9 @@ let () =
     ();
   | _ -> read_eval_print initial_env initial_tyenv
 ;;
+
 (*
 let () = Test.test;
   ();;
-*)
+ *)
+
