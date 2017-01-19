@@ -45,14 +45,36 @@ let rec subst_type subs ty =
 let eqs_of_subst s = List.map (fun x -> (TyVar (fst x), snd x)) s
 ;;
 
-(* (alpha, ty) list で等式関係集合pairsを更新する *)
+(* (alpha, ty) で等式関係集合pairsを更新する *)
 (* (tyvar * ty) -> (ty * ty) list -> (ty * ty) list *)
 let subst_eqs subst eqs =
   (* 代入されるα *)
-  let alpha = TyVar (fst subst) in
+  let alpha =  fst subst in
+  let newty = snd subst in
   let rec subst_eqs_loop subst eqs = 
     match eqs with
       [] -> []
+    | p :: ps -> (match p with
+                    ty1, ty2 -> (match ty1 with
+                                 | TyVar tyvar1 -> if (tyvar1 = alpha) then
+                                                     (newty, ty2) :: subst_eqs_loop subst ps
+                                                   else
+                                                     p :: subst_eqs_loop subst ps
+                                 | _ -> (match ty2 with
+                                         | TyVar tyvar2 -> if (tyvar2 = alpha) then
+                                                             (ty1, newty) :: subst_eqs_loop subst ps
+                                                           else
+                                                             p :: subst_eqs_loop subst ps
+                                         | _ -> (ty1, ty2) :: subst_eqs_loop subst ps
+                                        )
+                                )
+                                
+                 )
+  in
+  subst_eqs_loop subst eqs
+;;
+
+(*
     | p :: ps -> (match p with
           ty1, ty2 -> if (ty1 = alpha) then
             begin
@@ -65,9 +87,9 @@ let subst_eqs subst eqs =
             (ty1, alpha) :: subst_eqs_loop subst ps
           else
             (ty1, ty2) :: subst_eqs_loop subst ps
-      ) in
-  subst_eqs_loop subst eqs
-;;
+      )
+               *)
+
 
 (* 単一化アルゴリズム 型代入を返す *)
 (* (ty * ty) list -> subst((tyvar*ty)list) *)
@@ -143,19 +165,21 @@ let rec ty_exp tyenv = function
   | AppExp (exp1, exp2) ->
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
+    let newvar1 = TyVar (fresh_tyvar ()) in
+    let newvar2 = TyVar (fresh_tyvar ()) in
     (* 関数の引数の型と実際の引数の型が等しい情報 *)
     let eqs_fun = match ty1 with
         TyFun(t1, t2) -> [(t1, ty2)]
       | _ (*alpha*)-> (* 関数が変数の場合 *)
-         let t1 = TyVar (fresh_tyvar ()) in
-         let t2 = TyVar (fresh_tyvar ()) in
-         [(ty1, TyFun(t1,t2));(t1, ty2)]
+         (*let t1 = TyVar (fresh_tyvar ()) in
+         let t2 = TyVar (fresh_tyvar ()) in*)
+         [(ty1, TyFun(newvar1,newvar2));(newvar1, ty2)]
     in
 (*      | _ -> err ("not function") in *)
     (* 関数の返り値の型を取り出す *)
     let return_ty = match ty1 with
         TyFun(t1, t2) -> t2
-      | _ (*alpha*) -> ty1
+      | _ (*alpha*) -> newvar2
     in
          (*      | _ -> err ("not function") in*)
     let eqs = eqs_fun @ (eqs_of_subst s1) @ (eqs_of_subst s2) in
@@ -178,7 +202,3 @@ let rec ty_decl tyenv = function
       | _ -> err("Invalid decls.")
      )
   | _ -> err ("Not Implemented!")
-             
-
-
-
