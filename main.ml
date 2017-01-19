@@ -31,9 +31,9 @@ let rec read_eval_print env tyenv =
   flush stdout;
   try
     let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
-    let ty = snd (ty_decl tyenv decl) in
+    let (newtyenv, ty) = ty_decl tyenv decl in
     let newenv = eval_and_print_decl env decl ty in
-    read_eval_print newenv tyenv;
+    read_eval_print newenv newtyenv;
   with
   | Failure string ->  Printf.printf "%s \n" string; read_eval_print env tyenv
   | Eval.Error string -> Printf.printf "%s \n" string; read_eval_print env tyenv

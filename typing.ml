@@ -5,10 +5,25 @@ exception Error of string
 let err s = raise (Error s)
 
 (* Type Environment *)
-type tyenv = ty Environment.t
+type tyenv = tysc Environment.t
 
 type subst = (tyvar * ty) list
 
+(*
+τ ::= α | int | bool | τ1 -> τ2
+σ ::= τ | ∀α.σ        (σ:type scheme)
+*)                          
+(* tyenv( (vars, ty) list) -> tyvar Myset.t *)
+let rec freevar_tyenv tyenv =
+    match tyenv with
+      [] -> MySet.empty
+    | p :: ps -> (match p with
+                  | (vars, ty) ->
+                     let freevars = freevar_ty ty in
+                     MySet.union (MySet.diff vars freevars) (freevar_tyenv ps)
+                 )
+
+                   
 (* subst -> ty -> ty *)
 (* 型代入 -> 型変数を含む型 -> 型代入を使って型変数をできるだけ置き換えた型 *)
 (* substは型変数と型のペアのリスト [(id1,ty1); (id2,ty2); ... (idn,tyn)] *)
@@ -38,7 +53,18 @@ let rec subst_type subs ty =
      | (false, _) -> ty;
   )
 ;;
-
+                 
+let closure ty tyenv subst =
+  let fv_tyenv' = freevar_tyenv tyenv in
+  let fv_tyenv =
+    MySet.bigunion
+      (MySet.map
+         (fun id -> freevar_ty (subst_type subst (TyVar id)))
+         fv_tyenv') in
+  let ids = MySet.diff (freevar_ty ty) fv_tyenv in
+  TyScheme (MySet.to_list ids, ty)
+;;
+  
 (* 型代入を型の等式集合に変換 *)
 (* subst((tyvar * ty) list) -> (ty * ty) list *)
 (* TyVarに包むだけ？ *)
@@ -77,13 +103,13 @@ let rec unify l = match l with
         TyInt, TyInt -> unify ps
       | TyBool, TyBool -> unify ps
       | TyVar var, ty -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member (TyVar var) ftv_ty)) then
+        if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
           List.rev ((var, ty) :: (List.rev (unify updated)))
         else
           err ("Type mismatch1.")
       | ty, TyVar var -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member (TyVar var) ftv_ty)) then
+        if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
           List.rev ((var, ty) :: (List.rev (unify updated)))
         else
@@ -104,7 +130,14 @@ let ty_prim op ty1 ty2 = match op with
 
 let rec ty_exp tyenv = function
     Var x ->
-    (try ([], Environment.lookup x tyenv) with
+    (try
+       (* 束縛変数のリストと型σのペアが返る *)
+       let TyScheme (vars, ty) = Environment.lookup x tyenv in
+       (* 束縛変数=変数 の型代入を作成 *)
+       let s = List.map (fun id -> (id, TyVar (fresh_tyvar ())))
+                        vars in
+       ([], subst_type s ty)
+     with
        Environment.Not_bound -> err ("variable not bound: " ^ x))
   | ILit _ -> ([], TyInt)
   | BLit _ -> ([], TyBool)
@@ -125,19 +158,20 @@ let rec ty_exp tyenv = function
     let eqs = eqs_condition @ eqs_values @ (eqs_of_subst s1) @ (eqs_of_subst s2) @ (eqs_of_subst s3) in
     let s4 = unify eqs in (s4, subst_type s4 ty2)
   | LetExp (id, exp1, exp2) ->
-    let (s1, ty1) = ty_exp tyenv exp1 in
-    let (s2, ty2) = ty_exp (Environment.extend id ty1 tyenv) exp2 in
+     let (s1, ty1) = ty_exp tyenv exp1 in
+     let (s2, ty2) = ty_exp (Environment.extend id ty1 tyenv) exp2 in
+    (*    let (s2, ty2) = ty_exp (Environment.extend id ty1 tyenv) exp2 in *)
     let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) in
     let s3 = unify eqs in (s3, subst_type s3 ty2)
   | FunExp (ids, exp) ->
-    (match ids with
+     (match ids with
        id :: [] ->
        let domty = TyVar (fresh_tyvar ()) in
        let s, ranty =
          ty_exp (Environment.extend id domty tyenv) exp in
        (s, TyFun (subst_type s domty, ranty))
      | i :: is ->
-       ty_exp (Environment.extend i (TyVar (fresh_tyvar ())) tyenv) (FunExp (is, exp))
+        ty_exp (Environment.extend i (TyVar (fresh_tyvar ())) tyenv) (FunExp (is, exp))
      | _ -> err ("Invalid number of arguments.")
     )
   | AppExp (exp1, exp2) ->
@@ -162,10 +196,19 @@ let rec ty_exp tyenv = function
     let s3 = unify eqs in (s3, subst_type s3 return_ty)
   | _ -> err ("Not Implemented!")
 
-let ty_decl tyenv = function
+let rec ty_decl tyenv = function
     Exp e -> ty_exp tyenv e
+  | Decl (id, e) ->
+     let (s1, ty1) = ty_exp tyenv e in
+     ty_exp (Environment.extend id ty1 tyenv) e
+  (*     ty_exp (Environment.extend id ty1 tyenv) e *)
+  | Decls (decls) ->
+     (match decls with
+     | (id, e) :: [] -> let (s1, ty1) = ty_exp tyenv e in
+                        ty_exp (Environment.extend id ty1 tyenv) e;
+     | (id, e) :: ds -> let (s1, ty1) = ty_exp tyenv e in
+                        let newtyenv = (Environment.extend id ty1 tyenv) in
+                        ty_decl newtyenv (Decls (ds))
+     | _ -> err("Invalid decls.")
+     )
   | _ -> err ("Not Implemented!")
-
-
-
-
