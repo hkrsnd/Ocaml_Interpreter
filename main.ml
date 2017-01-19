@@ -121,8 +121,8 @@ let cut_comments strs =
           if (depth = 1) then
             (* 終わり記号の後が改行かどうか *)
             if (Str.match_end () = String.length s) then begin
-              cut_comments_loop ss (depth - 1)
-            end
+                cut_comments_loop ss (depth - 1)
+              end
             else
               let not_comment_part = (Str.string_after s (Str.match_end ())) in
               not_comment_part :: (cut_comments_loop ss (depth - 1))
@@ -135,24 +135,24 @@ let cut_comments strs =
           (* そのまま次の行へ *)
           cut_comments_loop ss depth
       else begin
-        (* コメント外部のとき *)
-        (* コメント始まり記号があったらそれまではプログラム、それ以降はコメント *)
-        if (search_string comment_start_regex s >= 0) then
-          let begin_pos = Str.match_beginning () in
-          (Str.string_before s begin_pos) :: (cut_comments_loop ((Str.string_after s (begin_pos+2)) :: ss) (depth+1))
-        else
-          (* コメント始まり記号がない場合、その行すべてがプログラム *)
-          s :: (cut_comments_loop ss depth)
-      end
+          (* コメント外部のとき *)
+          (* コメント始まり記号があったらそれまではプログラム、それ以降はコメント *)
+          if (search_string comment_start_regex s >= 0) then
+            let begin_pos = Str.match_beginning () in
+            (Str.string_before s begin_pos) :: (cut_comments_loop ((Str.string_after s (begin_pos+2)) :: ss) (depth+1))
+          else
+            (* コメント始まり記号がない場合、その行すべてがプログラム *)
+            s :: (cut_comments_loop ss depth)
+        end
   in
   let rec remove_null strs =
     match strs with
     | [] -> []
     | s :: ss ->
-      if (s = "") then
-        remove_null ss
-      else
-        s :: remove_null ss
+       if (s = "") then
+         remove_null ss
+       else
+         s :: remove_null ss
   in
   let strs_with_null = cut_comments_loop strs 0 in
   remove_null strs_with_null
@@ -175,9 +175,3 @@ let () =
     ();
   | _ -> read_eval_print initial_env initial_tyenv
 ;;
-
-(*
-let () = Test.test;
-  ();;
- *)
-

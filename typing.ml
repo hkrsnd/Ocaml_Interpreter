@@ -162,10 +162,23 @@ let rec ty_exp tyenv = function
     let s3 = unify eqs in (s3, subst_type s3 return_ty)
   | _ -> err ("Not Implemented!")
 
-let ty_decl tyenv = function
+let rec ty_decl tyenv = function
     Exp e -> ty_exp tyenv e
+  | Decl (id, e) ->
+     let (s1, ty1) = ty_exp tyenv e in
+     ty_exp (Environment.extend id ty1 tyenv) e
+  (*     ty_exp (Environment.extend id ty1 tyenv) e *)
+  | Decls (decls) ->
+     (match decls with
+      | (id, e) :: [] -> let (s1, ty1) = ty_exp tyenv e in
+                         ty_exp (Environment.extend id ty1 tyenv) e;
+      | (id, e) :: ds -> let (s1, ty1) = ty_exp tyenv e in
+                         let newtyenv = (Environment.extend id ty1 tyenv) in
+                         ty_decl newtyenv (Decls (ds))
+      | _ -> err("Invalid decls.")
+     )
   | _ -> err ("Not Implemented!")
-
+             
 
 
 
