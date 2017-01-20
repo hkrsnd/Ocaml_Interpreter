@@ -9,7 +9,7 @@ type tyenv = ty Environment.t
 
 type subst = (tyvar * ty) list
 
-(* subst -> ty -> ty *)
+(* subst (tyvar * ty) list -> ty -> ty *)
 (* 型代入 -> 型変数を含む型 -> 型代入を使って型変数をできるだけ置き換えた型 *)
 (* substは型変数と型のペアのリスト [(id1,ty1); (id2,ty2); ... (idn,tyn)] *)
 (* let alpha = fresh_tyvar () in
@@ -29,7 +29,7 @@ let rec subst_type subs ty =
   (match ty with
    | TyInt -> TyInt
    | TyBool -> TyBool
-   | TyFun (ty1, ty2) -> TyFun ((subst_type subs ty1), (subst_type subs ty2));
+   | TyFun (ty1, ty2) -> print_string "Tyfun"; TyFun ((subst_type subs ty1), (subst_type subs ty2));
    | TyVar var ->
      (* ペアの中から型変数の型情報を探す *)
      let vartype =  lookup_subst_type subs var in
@@ -54,7 +54,7 @@ let subst_eqs subst eqs =
                        newty
                      else
                        ty
-    (*    | TyFun (ty1, ty2) -> TyFun ((update_ty ty1 alpha newty), (update_ty ty2 alpha newty))*)
+    | TyFun (ty1, ty2) -> TyFun ((update_ty ty1 alpha newty), (update_ty ty2 alpha newty))
     | _ -> print_string "finish"; ty in
   (* 代入されるα *)
 (*  let alpha =  fst subst in
@@ -70,7 +70,7 @@ let subst_eqs subst eqs =
 
 (* 単一化アルゴリズム 型代入を返す *)
 (* (ty * ty) list -> subst((tyvar*ty)list) *)
-let rec unify l = print_string "unify"; match l with
+let rec unify l = print_string "unify\n"; match l with
     [] -> []
   | p :: ps -> (match p with
         TyInt, TyInt -> unify ps
@@ -79,8 +79,10 @@ let rec unify l = print_string "unify"; match l with
         if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
           List.rev ((var, ty) :: (List.rev (unify updated)))
-        else
-          err ("Type mismatch1.")
+        else begin
+            print_int var;
+            err ("Type mismatch1.")
+          end
       | ty, TyVar var -> let ftv_ty = freevar_ty ty in
         if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
@@ -142,7 +144,6 @@ let rec ty_exp tyenv = function
      | _ -> err ("Invalid number of arguments.")
     )
   | AppExp (exp1, exp2) ->
-     print_string "app";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
     let newvar1 = TyVar (fresh_tyvar ()) in
