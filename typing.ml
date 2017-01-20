@@ -68,7 +68,6 @@ let subst_eqs subst eqs =
                                          | _ -> (ty1, ty2) :: subst_eqs_loop subst ps
                                         )
                                 )
-                                
                  )
   in
   subst_eqs_loop subst eqs
