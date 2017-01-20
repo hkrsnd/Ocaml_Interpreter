@@ -30,7 +30,7 @@ let rec freevar_ty ty =
       let newset = freevar_ty_loop arg1 set in
       freevar_ty_loop arg2 newset
     | TyVar tyv ->
-      MySet.insert ty set
+      MySet.insert tyv set
     | _ -> set
   in
   freevar_ty_loop ty MySet.empty
@@ -57,9 +57,10 @@ let pp_ty ty =
            make_tyvar_env_loop ty vs (List.tl symbols) newenv  in
       make_tyvar_env_loop ty fvars symbols TyVarEnv.empty
     in
-  (* TyVar tyvarのセットからtyvarのリストを取り出す *)  
+  (* tyvarのセットからtyvarのリストを取り出す *)  
   let vars_to_int vars =
-    List.map (fun x -> match x with TyVar tyvar -> tyvar) (MySet.to_list vars)  in
+    (*    List.map (fun x -> match x with TyVar tyvar -> tyvar) (MySet.to_list vars)  in*)
+    MySet.to_list vars in
   
   let rec pp_ty_loop ty tyvarenv funcount =
     match ty with
@@ -81,7 +82,7 @@ let pp_ty ty =
          end
   in
 
-  let env = make_tyvar_env ty (vars_to_int (freevar_ty ty)) ["a'";"b'";"c'";"d'";"e'";"f'";"g'"] in
+  let env = make_tyvar_env ty (vars_to_int (freevar_ty ty)) ["a'";"b'";"c'";"d'";"e'";"f'";"g'";"h'"] in
   pp_ty_loop ty env 0
 ;;
   
@@ -93,8 +94,6 @@ let fresh_tyvar =
     counter := v + 1; v
   in body
 
-
-  
 type program =
     Exp of exp
   | Decl of id * exp

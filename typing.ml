@@ -48,63 +48,41 @@ let eqs_of_subst s = List.map (fun x -> (TyVar (fst x), snd x)) s
 (* (alpha, ty) で等式関係集合pairsを更新する *)
 (* (tyvar * ty) -> (ty * ty) list -> (ty * ty) list *)
 let subst_eqs subst eqs =
+  let rec update_ty ty alpha newty =
+    match ty with
+    | TyVar tyvar -> if (tyvar = alpha) then
+                       newty
+                     else
+                       ty
+    (*    | TyFun (ty1, ty2) -> TyFun ((update_ty ty1 alpha newty), (update_ty ty2 alpha newty))*)
+    | _ -> print_string "finish"; ty in
   (* 代入されるα *)
-  let alpha =  fst subst in
-  let newty = snd subst in
-  let rec subst_eqs_loop subst eqs = 
-    match eqs with
+(*  let alpha =  fst subst in
+  let newty = snd subst in *)
+  let rec subst_eqs_loop eqs alpha newty = match eqs with
       [] -> []
-    | p :: ps -> (match p with
-                    ty1, ty2 -> (match ty1 with
-                                 | TyVar tyvar1 -> if (tyvar1 = alpha) then
-                                                     (newty, ty2) :: subst_eqs_loop subst ps
-                                                   else
-                                                     p :: subst_eqs_loop subst ps
-                                 | _ -> (match ty2 with
-                                         | TyVar tyvar2 -> if (tyvar2 = alpha) then
-                                                             (ty1, newty) :: subst_eqs_loop subst ps
-                                                           else
-                                                             p :: subst_eqs_loop subst ps
-                                         | _ -> (ty1, ty2) :: subst_eqs_loop subst ps
-                                        )
-                                )
-                 )
-  in
-  subst_eqs_loop subst eqs
+    | p :: ps -> match p with
+                   ty1, ty2 -> (update_ty ty1 alpha newty, update_ty ty2 alpha newty) :: (subst_eqs_loop ps alpha newty) in
+  let alpha = fst subst in
+  let newty = snd subst in
+  subst_eqs_loop eqs alpha newty
 ;;
-
-(*
-    | p :: ps -> (match p with
-          ty1, ty2 -> if (ty1 = alpha) then
-            begin
-              if (ty2 = alpha) then
-                (alpha, alpha) :: subst_eqs_loop subst ps
-              else
-                (alpha, ty2) :: subst_eqs_loop subst ps
-            end
-          else if (ty2 = alpha) then
-            (ty1, alpha) :: subst_eqs_loop subst ps
-          else
-            (ty1, ty2) :: subst_eqs_loop subst ps
-      )
-               *)
-
 
 (* 単一化アルゴリズム 型代入を返す *)
 (* (ty * ty) list -> subst((tyvar*ty)list) *)
-let rec unify l = match l with
+let rec unify l = print_string "unify"; match l with
     [] -> []
   | p :: ps -> (match p with
         TyInt, TyInt -> unify ps
       | TyBool, TyBool -> unify ps
       | TyVar var, ty -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member (TyVar var) ftv_ty)) then
+        if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
           List.rev ((var, ty) :: (List.rev (unify updated)))
         else
           err ("Type mismatch1.")
       | ty, TyVar var -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member (TyVar var) ftv_ty)) then
+        if (not (MySet.member var ftv_ty)) then
           let updated = subst_eqs (var, ty) ps in
           List.rev ((var, ty) :: (List.rev (unify updated)))
         else
@@ -136,6 +114,7 @@ let rec ty_exp tyenv = function
     let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ eqs3 in
     let s3 = unify eqs in (s3, subst_type s3 ty)
   | IfExp (exp1, exp2, exp3) ->
+     print_string "ifexp";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
     let (s3, ty3) = ty_exp tyenv exp3 in
@@ -153,6 +132,7 @@ let rec ty_exp tyenv = function
   | FunExp (ids, exp) ->
     (match ids with
        id :: [] ->
+       print_string "here";
        let domty = TyVar (fresh_tyvar ()) in
        let s, ranty =
          ty_exp (Environment.extend id domty tyenv) exp in
@@ -162,6 +142,7 @@ let rec ty_exp tyenv = function
      | _ -> err ("Invalid number of arguments.")
     )
   | AppExp (exp1, exp2) ->
+     print_string "app";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
     let newvar1 = TyVar (fresh_tyvar ()) in

@@ -30,8 +30,11 @@ let rec read_eval_print env tyenv =
   print_string "# ";
   flush stdout;
   try
+    print_string "before decl";
     let decl = Parser.toplevel Lexer.main (Lexing.from_channel stdin) in
+    print_string "before tydecl";
     let ty = snd (ty_decl tyenv decl) in
+    print_string "getty";
     let newenv = eval_and_print_decl env decl ty in
     read_eval_print newenv tyenv;
   with
@@ -175,3 +178,8 @@ let () =
     ();
   | _ -> read_eval_print initial_env initial_tyenv
 ;;
+
+  (*
+let () =
+  Test.test; ();
+   *)
