@@ -35,15 +35,6 @@ let rec freevar_ty ty =
   in
   freevar_ty_loop ty MySet.empty
 
-(*             
-let rec pp_ty = function
-    TyInt -> print_string "int"
-  | TyBool -> print_string "bool"
-  | TyVar ty -> print_string (string_of_int ty)
-  | TyFun (ty1 , ty2) -> pp_ty ty1; print_string " -> "; pp_ty ty2; print_newline ();
-;;
- *)
-
 (* tyvar: int　をkey, その型を表すシンボル(a'など))を値にもつ写像TyVarEnv *)                  
 module TyVarEnv = Map.Make(struct type t = int let compare = compare end);;
 let pp_ty ty =

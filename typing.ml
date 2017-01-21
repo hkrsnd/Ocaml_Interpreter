@@ -29,7 +29,7 @@ let rec subst_type subs ty =
   (match ty with
    | TyInt -> TyInt
    | TyBool -> TyBool
-   | TyFun (ty1, ty2) -> print_string "Tyfun"; TyFun ((subst_type subs ty1), (subst_type subs ty2));
+   | TyFun (ty1, ty2) -> TyFun ((subst_type subs ty1), (subst_type subs ty2));
    | TyVar var ->
      (* ペアの中から型変数の型情報を探す *)
      let vartype =  lookup_subst_type subs var in
@@ -42,7 +42,6 @@ let rec subst_type subs ty =
 
 (* (Tyvar alpha, Tyvar alpha)の除去 *)
 let rec remove_duplication eqs =
-  print_string "removing";
   match eqs with
     [] -> []
   | e :: es -> (match e with
@@ -69,7 +68,7 @@ let subst_eqs subst eqs =
                      else
                        ty
     | TyFun (ty1, ty2) -> TyFun ((update_ty ty1 alpha newty), (update_ty ty2 alpha newty))
-    | _ -> print_string "finish"; ty in
+    | _ -> ty in
   (* 代入されるα *)
 (*  let alpha =  fst subst in
   let newty = snd subst in *)
@@ -84,47 +83,21 @@ let subst_eqs subst eqs =
   plain_result
 ;;
 
-(* MySet.member を　α, {α}に対してfalseを返すようにした関数 *)
-let ismember e l =
-  if (MySet.len l > 1) then
-    MySet.member e l
-  else
-    false
-;;
-  
-
 (* 単一化アルゴリズム 型代入を返す *)
 (* (ty * ty) list -> subst((tyvar*ty)list) *)
-let rec unify l = print_string "unify\n";
+let rec unify l = 
                   let nodup_l = remove_duplication l in
                   match nodup_l with
     [] -> []
   | p :: ps -> (match p with
                   TyInt, TyInt -> unify ps
                 | TyBool, TyBool -> unify ps
-                                          (*
-                |  TyVar tyvar1, TyVar tyvar2 ->
-                    if (tyvar1 = tyvar2) then
-                      unify ps
-                    else begin
-                        print_int tyvar1;
-                        print_string "\n";
-                        print_int tyvar2;                        
-                        print_string "Type mismatch tyvar tyvar";
-                        unify ps;
-                      end
-                                           *)
                 | TyVar var, ty -> let ftv_ty = freevar_ty ty in
                                      if (not (MySet.member var ftv_ty)) then
                                        let updated = subst_eqs (var, ty) ps in
                                        List.rev ((var, ty) :: (List.rev (unify updated)))
-                                     else begin
-                                         print_string "var:  "; print_int var; print_string "\n";
-                                         List.map (fun x -> print_int x; print_string ":") (MySet.to_list ftv_ty);
-
-                                         print_string "\n";
-                                         err ("Type mismatch1.")
-                                       end
+                                     else
+                                       err ("Type mismatch1.")
                 | ty, TyVar var -> let ftv_ty = freevar_ty ty in
                                    if (not (MySet.member var ftv_ty)) then
                                      let updated = subst_eqs (var, ty) ps in
@@ -158,7 +131,6 @@ let rec ty_exp tyenv = function
     let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ eqs3 in
     let s3 = unify eqs in (s3, subst_type s3 ty)
   | IfExp (exp1, exp2, exp3) ->
-     print_string "ifexp";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
     let (s3, ty3) = ty_exp tyenv exp3 in
@@ -176,7 +148,6 @@ let rec ty_exp tyenv = function
   | FunExp (ids, exp) ->
     (match ids with
        id :: [] ->
-       print_string "here";
        let domty = TyVar (fresh_tyvar ()) in
        let s, ranty =
          ty_exp (Environment.extend id domty tyenv) exp in
@@ -186,28 +157,22 @@ let rec ty_exp tyenv = function
      | _ -> err ("Invalid number of arguments.")
     )
   | AppExp (exp1, exp2) ->
-     print_string "APPEXP\n";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
     let freshnum = fresh_tyvar () in
     let newvar1 = TyVar (freshnum) in
-    print_string "generated: "; print_int freshnum; print_string "\n";
    
     (* 関数の引数の型と実際の引数の型が等しい情報 *)
     let eqs_fun = match ty1 with
         TyFun(t1, t2) -> [(t1, ty2)]
       | _ (*alpha*)-> (* 関数が変数の場合 *)
-         (*let t1 = TyVar (fresh_tyvar ()) in
-         let t2 = TyVar (fresh_tyvar ()) in*)
          [(TyFun(ty2,newvar1), ty1)]
     in
-(*      | _ -> err ("not function") in *)
     (* 関数の返り値の型を取り出す *)
     let return_ty = match ty1 with
         TyFun(t1, t2) -> t2
       | _ (*alpha*) -> newvar1
     in
-         (*      | _ -> err ("not function") in*)
     let eqs = eqs_fun @ (eqs_of_subst s1) @ (eqs_of_subst s2) in
     let s3 = unify eqs in (s3, subst_type s3 return_ty)
   | _ -> err ("Not Implemented!")
@@ -217,7 +182,6 @@ let rec ty_decl tyenv = function
   | Decl (id, e) ->
      let (s1, ty1) = ty_exp tyenv e in
      ty_exp (Environment.extend id ty1 tyenv) e
-  (*     ty_exp (Environment.extend id ty1 tyenv) e *)
   | Decls (decls) ->
      (match decls with
       | (id, e) :: [] -> let (s1, ty1) = ty_exp tyenv e in
