@@ -39,6 +39,20 @@ let rec subst_type subs ty =
   )
 ;;
 
+
+(* (Tyvar alpha, Tyvar alpha)の除去 *)
+let rec remove_duplication eqs =
+  print_string "removing";
+  match eqs with
+    [] -> []
+  | e :: es -> (match e with
+                  TyVar tyvar1, TyVar tyvar2 -> if (tyvar1 = tyvar2) then
+                                                  remove_duplication es
+                                                else
+                                                  e :: remove_duplication es
+                | _ -> e :: remove_duplication es
+               )
+;;
 (* 型代入を型の等式集合に変換 *)
 (* subst((tyvar * ty) list) -> (ty * ty) list *)
 (* TyVarに包むだけ？ *)
@@ -63,38 +77,66 @@ let subst_eqs subst eqs =
       [] -> []
     | p :: ps -> match p with
                    ty1, ty2 -> (update_ty ty1 alpha newty, update_ty ty2 alpha newty) :: (subst_eqs_loop ps alpha newty) in
+    
   let alpha = fst subst in
   let newty = snd subst in
-  subst_eqs_loop eqs alpha newty
+  let plain_result = subst_eqs_loop eqs alpha newty in
+  plain_result
 ;;
+
+(* MySet.member を　α, {α}に対してfalseを返すようにした関数 *)
+let ismember e l =
+  if (MySet.len l > 1) then
+    MySet.member e l
+  else
+    false
+;;
+  
 
 (* 単一化アルゴリズム 型代入を返す *)
 (* (ty * ty) list -> subst((tyvar*ty)list) *)
-let rec unify l = print_string "unify\n"; match l with
+let rec unify l = print_string "unify\n";
+                  let nodup_l = remove_duplication l in
+                  match nodup_l with
     [] -> []
   | p :: ps -> (match p with
-        TyInt, TyInt -> unify ps
-      | TyBool, TyBool -> unify ps
-      | TyVar var, ty -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member var ftv_ty)) then
-          let updated = subst_eqs (var, ty) ps in
-          List.rev ((var, ty) :: (List.rev (unify updated)))
-        else begin
-            print_int var;
-            err ("Type mismatch1.")
-          end
-      | ty, TyVar var -> let ftv_ty = freevar_ty ty in
-        if (not (MySet.member var ftv_ty)) then
-          let updated = subst_eqs (var, ty) ps in
-          List.rev ((var, ty) :: (List.rev (unify updated)))
-        else
-          err ("Type mismatch2.")
-      | TyFun(ty11, ty12), TyFun(ty21, ty22) ->
-        let newpairs = [(ty11, ty21);(ty12, ty22)] in
-        unify (List.append newpairs  ps)
-      | _, _ -> err("Type mismatch in unify.")
-    )
+                  TyInt, TyInt -> unify ps
+                | TyBool, TyBool -> unify ps
+                                          (*
+                |  TyVar tyvar1, TyVar tyvar2 ->
+                    if (tyvar1 = tyvar2) then
+                      unify ps
+                    else begin
+                        print_int tyvar1;
+                        print_string "\n";
+                        print_int tyvar2;                        
+                        print_string "Type mismatch tyvar tyvar";
+                        unify ps;
+                      end
+                                           *)
+                | TyVar var, ty -> let ftv_ty = freevar_ty ty in
+                                     if (not (MySet.member var ftv_ty)) then
+                                       let updated = subst_eqs (var, ty) ps in
+                                       List.rev ((var, ty) :: (List.rev (unify updated)))
+                                     else begin
+                                         print_string "var:  "; print_int var; print_string "\n";
+                                         List.map (fun x -> print_int x; print_string ":") (MySet.to_list ftv_ty);
 
+                                         print_string "\n";
+                                         err ("Type mismatch1.")
+                                       end
+                | ty, TyVar var -> let ftv_ty = freevar_ty ty in
+                                   if (not (MySet.member var ftv_ty)) then
+                                     let updated = subst_eqs (var, ty) ps in
+                                     List.rev ((var, ty) :: (List.rev (unify updated)))
+                                   else
+                                     err ("Type mismatch2.")
+                | TyFun(ty11, ty12), TyFun(ty21, ty22) ->
+                   let newpairs = [(ty11, ty21);(ty12, ty22)] in
+                   unify (List.append newpairs ps)
+                | _, _ -> err("Type mismatch in unify.")
+               )
+                 
 let ty_prim op ty1 ty2 = match op with
     Plus -> ([(ty1, TyInt); (ty2, TyInt)], TyInt)
   | Mult -> ([(ty1, TyInt); (ty2, TyInt)], TyInt)
@@ -140,27 +182,30 @@ let rec ty_exp tyenv = function
          ty_exp (Environment.extend id domty tyenv) exp in
        (s, TyFun (subst_type s domty, ranty))
      | i :: is ->
-       ty_exp (Environment.extend i (TyVar (fresh_tyvar ())) tyenv) (FunExp (is, exp))
+        ty_exp (Environment.extend i (TyVar (fresh_tyvar ())) tyenv) (FunExp (is, exp))
      | _ -> err ("Invalid number of arguments.")
     )
   | AppExp (exp1, exp2) ->
+     print_string "APPEXP\n";
     let (s1, ty1) = ty_exp tyenv exp1 in
     let (s2, ty2) = ty_exp tyenv exp2 in
-    let newvar1 = TyVar (fresh_tyvar ()) in
-    let newvar2 = TyVar (fresh_tyvar ()) in
+    let freshnum = fresh_tyvar () in
+    let newvar1 = TyVar (freshnum) in
+    print_string "generated: "; print_int freshnum; print_string "\n";
+   
     (* 関数の引数の型と実際の引数の型が等しい情報 *)
     let eqs_fun = match ty1 with
         TyFun(t1, t2) -> [(t1, ty2)]
       | _ (*alpha*)-> (* 関数が変数の場合 *)
          (*let t1 = TyVar (fresh_tyvar ()) in
          let t2 = TyVar (fresh_tyvar ()) in*)
-         [(ty1, TyFun(newvar1,newvar2));(newvar1, ty2)]
+         [(TyFun(ty2,newvar1), ty1)]
     in
 (*      | _ -> err ("not function") in *)
     (* 関数の返り値の型を取り出す *)
     let return_ty = match ty1 with
         TyFun(t1, t2) -> t2
-      | _ (*alpha*) -> newvar2
+      | _ (*alpha*) -> newvar1
     in
          (*      | _ -> err ("not function") in*)
     let eqs = eqs_fun @ (eqs_of_subst s1) @ (eqs_of_subst s2) in
